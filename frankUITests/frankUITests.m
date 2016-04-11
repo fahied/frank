@@ -12,6 +12,10 @@
 #import "XCUIElement+Addons.h"
 #import "XCUIElementQuery+Addons.h"
 
+bool CGPointIsNearPoint(CGPoint point1, CGPoint point2, CGFloat tolerance) {
+    return pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2) <= pow(tolerance, 2);
+}
+
 @interface frankUITests : XCTestCase
 
 @property (nonatomic, strong) XCUIApplication *app;
@@ -33,7 +37,7 @@
     
     XCUIElement *currentLocation = self.app.otherElements[@"Current Location"];
     NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(XCUIElement *obj, NSDictionary *bindings) {
-        return obj.exists && obj.centerCoordinate.screenPoint.x == map.centerCoordinate.screenPoint.x;
+        return obj.exists && CGPointIsNearPoint(obj.centerCoordinate.screenPoint, map.centerCoordinate.screenPoint, 10);
     }];
     [self expectationForPredicate:predicate evaluatedWithObject:currentLocation handler:nil];
     [self waitForExpectationsWithTimeout:5 handler:nil];
