@@ -15,25 +15,37 @@
 @interface frankUITests : XCTestCase
 
 @property (nonatomic, strong) XCUIApplication *app;
+@property (nonatomic, strong) NSMutableSet *tokens;
 
 @end
 
 @implementation frankUITests
 
-#pragma mark - Setup
-
-- (void)setUp {
-    [super setUp];
-    
-    self.app = [[XCUIApplication alloc] init];
-    [self.app launch];
-    
-#if TARGET_IPHONE_SIMULATOR
-    sleep(1);
-#endif
-}
-
 #pragma mark - Tests
+
+- (void)testMapLocation {
+    [self.app.collectionViews.cells.first tap];
+    
+    XCUIElement *map = self.app.maps.element;
+    if (!map.exists) {
+        [self.app tap];
+    }
+    
+    XCUIElement *currentLocation = self.app.otherElements[@"Current Location"];
+    NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(XCUIElement *obj, NSDictionary *bindings) {
+        return obj.exists && obj.centerCoordinate.screenPoint.x == map.centerCoordinate.screenPoint.x;
+    }];
+    [self expectationForPredicate:predicate evaluatedWithObject:currentLocation handler:nil];
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+    
+    [map pinchWithScale:15 velocity:15];
+    [currentLocation tap];
+    [self.app.otherElements[@"PopoverDismissRegion"] tap];
+    [map rotate:(M_PI / 4) withVelocity:(M_PI / 4)];
+    [self.app.buttons[@"Compass"] tap];
+    
+    [self.app.navigationBars.buttons.first tap];
+}
 
 - (void)testAddPerson {
     [self.app.tabBars.buttons[@"Table"] tap];
@@ -60,7 +72,33 @@
     XCTAssertEqual(self.app.tables.cells.count, count - 1);
 }
 
-- (void)testUserLocation {
+#pragma mark - Setup
+
+- (void)setUp {
+    [super setUp];
+    
+    self.tokens = [[NSMutableSet alloc] init];
+    [self addLocationInterruptionMonitor];
+    
+    self.app = [[XCUIApplication alloc] init];
+    [self.app launch];
+    
+#if TARGET_IPHONE_SIMULATOR
+    sleep(1);
+#endif
+}
+
+- (void)tearDown {
+    for (id token in self.tokens) {
+        [self removeUIInterruptionMonitor:token];
+    }
+    
+    [super tearDown];
+}
+
+#pragma mark - Instance Methods
+
+- (void)addLocationInterruptionMonitor {
     id token = [self addUIInterruptionMonitorWithDescription:@"Location Alert" handler:^BOOL(XCUIElement * _Nonnull interruptingElement) {
         if ([interruptingElement.label containsString:@"location"]) {
             [interruptingElement.buttons[@"Allow"] tap];
@@ -68,29 +106,7 @@
         }
         return NO;
     }];
-    
-    [self.app.collectionViews.cells.first tap];
-    [self.app tap];
-    
-    [self removeUIInterruptionMonitor:token];
-}
-
-- (void)testMapLocation {
-    [self.app.collectionViews.cells.first tap];
-    
-    XCUIElement *currentLocation = self.app.otherElements[@"Current Location"];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"exists == YES"];
-    [self expectationForPredicate:predicate evaluatedWithObject:currentLocation handler:nil];
-    [self waitForExpectationsWithTimeout:5 handler:nil];
-    
-    XCUIElement *map = self.app.maps.element;
-    [map pinchWithScale:15 velocity:15];
-    [currentLocation tap];
-    [self.app.otherElements[@"PopoverDismissRegion"] tap];
-    [map rotate:(M_PI / 4) withVelocity:(M_PI / 4)];
-    [self.app.buttons[@"Compass"] tap];
-    
-    [self.app.navigationBars.buttons.first tap];
+    [self.tokens addObject:token];
 }
 
 @end
